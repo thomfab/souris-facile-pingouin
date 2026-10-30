@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Souris facile pingouin
+Comment=Move or resize the window under the pointer by holding keys and moving the mouse
+Exec=souris-facile-pingouin
+Icon=input-mouse
+Terminal=false
+Categories=Utility;
+X-GNOME-Autostart-enabled=true

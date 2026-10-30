@@ -1,0 +1,61 @@
+name: Release
+
+# Pushing a version tag (e.g. v0.1) builds the executable and publishes it
+# as a GitHub release. The tag must match the version in Cargo.toml (0.1.x).
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the version
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          case "$version" in
+            "${GITHUB_REF_NAME#v}" | "${GITHUB_REF_NAME#v}".*) ;;
+            *) echo "Tag $GITHUB_REF_NAME doesn't match Cargo.toml version $version"; exit 1 ;;
+          esac
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "SHORT=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      # The version's section of CHANGELOG.md, without its heading.
+      - name: Read the notes
+        run: |
+          awk -v v="## $SHORT" '$0 == v { found = 1; next } found && /^## / { exit } found' CHANGELOG.md > build-notes.md
+          if ! grep -q '[^[:space:]]' build-notes.md; then
+            echo "CHANGELOG.md has no section for $SHORT"
+            exit 1
+          fi
+
+      - name: Install the toolchain
+        run: rustup target add x86_64-unknown-linux-musl
+
+      - name: Test
+        run: make test
+
+      - name: Build
+        run: make release
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "## What's new"
+            cat build-notes.md
+            echo
+            echo "## Installing"
+            echo
+            echo "A single static executable for x86_64 Linux, for X11 sessions. Extract it, put \`souris-facile-pingouin\` somewhere on your PATH (e.g. \`~/.local/bin\`) and run it. To start it with every session, copy \`souris-facile-pingouin.desktop\` to \`~/.config/autostart/\`."
+          } > notes.md
+          gh release create "$GITHUB_REF_NAME" "build/souris-facile-pingouin-$VERSION-x86_64.tar.gz" \
+            --title "Souris facile pingouin $SHORT" \
+            --notes-file notes.md

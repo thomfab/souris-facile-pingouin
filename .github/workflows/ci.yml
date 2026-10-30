@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the toolchain
+        run: rustup target add x86_64-unknown-linux-musl
+      - name: Test
+        run: make test
+      - name: Build
+        run: make release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: souris-facile-pingouin
+          path: build/souris-facile-pingouin-*.tar.gz
