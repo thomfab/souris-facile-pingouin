@@ -1,9 +1,12 @@
 mod geometry;
+mod icon;
 mod gestures;
 mod memory;
 mod mover;
 mod platform;
 mod settings;
+mod tray;
+mod ui;
 mod x11;
 
 use std::process::ExitCode;
@@ -17,6 +20,7 @@ Hold keys and move the mouse to move or resize the window under the pointer.
 
 Commands:
   (none)               Run (X11 sessions only, for now)
+  settings             Open the settings window
   displays [--preview] List the displays and their grid, ready to paste into
                        the settings; --preview shows the grids for 3 seconds
   -h, --help           Show this help
@@ -38,6 +42,7 @@ fn main() -> ExitCode {
             eprintln!("Settings: {}", settings_path.display());
             x11::run(&settings_path, &settings::window_frames_path())
         }
+        Some("settings") => x11::run_settings(&settings_path, &settings::window_frames_path()),
         Some("displays") => {
             let settings = Settings::load(&settings_path).unwrap_or_else(|e| {
                 eprintln!("{e}");

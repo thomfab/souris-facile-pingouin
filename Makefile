@@ -20,15 +20,19 @@ test:
 install: build
 	install -Dm755 $(BIN) $(PREFIX)/bin/souris-facile-pingouin
 	install -Dm644 resources/souris-facile-pingouin.desktop $(PREFIX)/share/applications/souris-facile-pingouin.desktop
+	for size in 16 22 24 32 48 64 128 256; do \
+		install -Dm644 resources/icons/$$size.png $(PREFIX)/share/icons/hicolor/$${size}x$${size}/apps/souris-facile-pingouin.png; \
+	done
 
 # Starts it with every session.
 autostart: install
 	install -Dm644 resources/souris-facile-pingouin.desktop $(HOME)/.config/autostart/souris-facile-pingouin.desktop
 
-# The executable and the desktop file, ready to share.
+# The executable, the desktop file and the icon, ready to share.
 release: build
 	rm -rf build && mkdir -p build/souris-facile-pingouin-$(VERSION)
 	cp $(BIN) resources/souris-facile-pingouin.desktop README.md LICENSE build/souris-facile-pingouin-$(VERSION)/
+	cp resources/icons/256.png build/souris-facile-pingouin-$(VERSION)/souris-facile-pingouin.png
 	tar -C build -czf $(TARBALL) souris-facile-pingouin-$(VERSION)
 	@echo $(TARBALL)
 

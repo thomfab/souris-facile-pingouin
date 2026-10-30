@@ -126,12 +126,15 @@ pub fn displays(x: &X11) -> Res<Vec<Display>> {
             None => None,
         };
         let frame = Rect::new(m.x as f64, m.y as f64, m.width as f64, m.height as f64);
+        let builtin = ["eDP", "LVDS", "DSI"].iter().any(|c| connector.starts_with(c));
+        let fallback = if builtin { "Built-in Display".to_string() } else { connector.clone() };
         let display = Display {
-            id: edid.as_ref().map_or(connector.clone(), |e| e.id.clone()),
-            name: edid.and_then(|e| e.name).unwrap_or(connector),
+            id: edid.as_ref().map_or(connector, |e| e.id.clone()),
+            name: edid.and_then(|e| e.name).unwrap_or(fallback),
             frame,
             work_area: work_area(frame, screen_size, &struts, workarea),
             size_mm: Size::new(m.width_in_millimeters as f64, m.height_in_millimeters as f64),
+            builtin,
         };
         if m.primary {
             displays.insert(0, display);

@@ -43,6 +43,23 @@ impl WindowMemory {
         self.frames.get(display)?.get(app).copied()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.frames.values().all(BTreeMap::is_empty)
+    }
+
+    // How many apps have a frame remembered on the display.
+    pub fn count(&self, display: &str) -> usize {
+        self.frames.get(display).map_or(0, BTreeMap::len)
+    }
+
+    pub fn displays(&self) -> impl Iterator<Item = &String> {
+        self.frames.iter().filter(|(_, apps)| !apps.is_empty()).map(|(display, _)| display)
+    }
+
+    pub fn forget(&mut self, display: &str) {
+        self.frames.remove(display);
+    }
+
     pub fn remember(&mut self, frame: Rect, area: Rect, app: &str, display: &str) {
         self.frames
             .entry(display.to_string())

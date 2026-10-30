@@ -55,6 +55,10 @@ impl Mods {
         Mods(self.0 | modifier.bit())
     }
 
+    pub fn toggled(self, modifier: Modifier) -> Mods {
+        Mods(self.0 ^ modifier.bit())
+    }
+
     pub fn contains(self, modifier: Modifier) -> bool {
         self.0 & modifier.bit() != 0
     }
@@ -310,6 +314,83 @@ impl Settings {
     }
 }
 
+// Changes values in the settings file, keeping its comments and layout.
+pub struct SettingsFile {
+    path: PathBuf,
+    doc: toml_edit::DocumentMut,
+}
+
+// Keeps the spacing and comments around the value it replaces.
+fn set_value(item: &mut toml_edit::Item, value: toml_edit::Value) {
+    let mut value = value;
+    if let Some(old) = item.as_value() {
+        *value.decor_mut() = old.decor().clone();
+    }
+    *item = toml_edit::Item::Value(value);
+}
+
+impl SettingsFile {
+    // The default settings if there's no file yet.
+    pub fn open(path: &Path) -> Result<SettingsFile, String> {
+        let text = match std::fs::read_to_string(path) {
+            Ok(text) => text,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => DEFAULT_SETTINGS.to_string(),
+            Err(e) => return Err(format!("{}: {e}", path.display())),
+        };
+        let doc = text.parse().map_err(|e| format!("{}: {e}", path.display()))?;
+        Ok(SettingsFile { path: path.to_path_buf(), doc })
+    }
+
+    pub fn settings(&self) -> Result<Settings, String> {
+        Settings::parse(&self.doc.to_string())
+    }
+
+    pub fn set_bool(&mut self, key: &str, on: bool) {
+        set_value(&mut self.doc[key], on.into());
+    }
+
+    pub fn set_int(&mut self, key: &str, number: i64) {
+        set_value(&mut self.doc[key], number.into());
+    }
+
+    pub fn set_mods(&mut self, key: &str, mods: Mods) {
+        let names: toml_edit::Array = mods.iter().map(Modifier::name).collect();
+        set_value(&mut self.doc[key], names.into());
+    }
+
+    pub fn set_grid(&mut self, id: &str, grid: &DisplayGrid) {
+        if !self.doc.contains_table("displays") {
+            let mut displays = toml_edit::Table::new();
+            displays.set_implicit(true);
+            self.doc.insert("displays", toml_edit::Item::Table(displays));
+        }
+        let display = &mut self.doc["displays"][id];
+        if !display.is_table() {
+            *display = toml_edit::table();
+        }
+        set_value(&mut display["name"], grid.name.as_str().into());
+        set_value(&mut display["columns"], (grid.columns as i64).into());
+        set_value(&mut display["rows"], (grid.rows as i64).into());
+    }
+
+    pub fn remove_grid(&mut self, id: &str) {
+        if let Some(displays) = self.doc.get_mut("displays").and_then(|d| d.as_table_like_mut()) {
+            displays.remove(id);
+        }
+    }
+
+    // Through a temporary file, so that the app never reads half of it.
+    pub fn save(&self) -> Result<(), String> {
+        let error = |e: std::io::Error| format!("{}: {e}", self.path.display());
+        if let Some(dir) = self.path.parent() {
+            std::fs::create_dir_all(dir).map_err(error)?;
+        }
+        let temporary = self.path.with_extension("toml.new");
+        std::fs::write(&temporary, self.doc.to_string()).map_err(error)?;
+        std::fs::rename(&temporary, &self.path).map_err(error)
+    }
+}
+
 fn xdg_dir(variable: &str, fallback: &str) -> PathBuf {
     match std::env::var_os(variable) {
         Some(dir) if !dir.is_empty() => PathBuf::from(dir),
@@ -319,6 +400,18 @@ fn xdg_dir(variable: &str, fallback: &str) -> PathBuf {
 
 pub fn settings_path() -> PathBuf {
     xdg_dir("XDG_CONFIG_HOME", ".config").join("souris-facile-pingouin/settings.toml")
+}
+
+pub fn autostart_path() -> PathBuf {
+    xdg_dir("XDG_CONFIG_HOME", ".config").join("autostart/souris-facile-pingouin.desktop")
+}
+
+// The desktop file, launching the executable at `exe`.
+pub fn desktop_entry(exe: &Path) -> String {
+    let exe = exe.to_string_lossy();
+    let exe = if exe.contains(' ') { format!("\"{exe}\"") } else { exe.into_owned() };
+    include_str!("../resources/souris-facile-pingouin.desktop")
+        .replace("Exec=souris-facile-pingouin", &format!("Exec={exe}"))
 }
 
 pub fn window_frames_path() -> PathBuf {
@@ -404,11 +497,59 @@ mod tests {
         assert!(Settings::parse("raise-window = 3").is_err());
     }
 
+    fn edited(edit: impl FnOnce(&mut SettingsFile)) -> String {
+        let mut file = SettingsFile { path: PathBuf::new(), doc: DEFAULT_SETTINGS.parse().unwrap() };
+        edit(&mut file);
+        file.doc.to_string()
+    }
+
+    #[test]
+    fn edits_keep_the_comments() {
+        let text = edited(|f| {
+            f.set_bool("raise-window", true);
+            f.set_int("snap-threshold", 24);
+            f.set_mods("move-modifiers", mods("alt,super"));
+        });
+        let expected = DEFAULT_SETTINGS
+            .replace("raise-window = false", "raise-window = true")
+            .replace("snap-threshold = 16", "snap-threshold = 24")
+            .replace(r#"move-modifiers = ["control", "alt"]"#, r#"move-modifiers = ["alt", "super"]"#);
+        assert_eq!(text, expected);
+    }
+
+    #[test]
+    fn edits_add_and_remove_display_grids() {
+        let grid = DisplayGrid { name: "DELL".into(), columns: 6, rows: 2 };
+        let text = edited(|f| f.set_grid(OFFICE, &grid));
+        assert!(DEFAULT_SETTINGS.lines().all(|line| text.contains(line)));
+        assert_eq!(Settings::parse(&text).unwrap().displays.get(OFFICE), Some(&grid));
+
+        let text = edited(|f| {
+            f.set_grid(OFFICE, &grid);
+            f.set_grid("other", &grid);
+            f.set_grid(OFFICE, &DisplayGrid { columns: 3, ..grid.clone() });
+            f.remove_grid("other");
+        });
+        let displays = Settings::parse(&text).unwrap().displays;
+        assert_eq!(displays.len(), 1);
+        assert_eq!(displays[OFFICE].columns, 3);
+    }
+
+    #[test]
+    fn edits_bring_back_missing_settings() {
+        let mut file = SettingsFile { path: PathBuf::new(), doc: "[displays.a]\ncolumns = 2\nrows = 2\n".parse().unwrap() };
+        file.set_bool("enabled", false);
+        let settings = file.settings().unwrap();
+        assert!(!settings.enabled);
+        assert_eq!(settings.displays["a"].rows, 2);
+    }
+
     const OFFICE: &str = "DEL-A0FE-12345678";
 
     fn display(id: &str, width: f64, height: f64, mm: (f64, f64)) -> Display {
         let frame = Rect::new(0.0, 0.0, width, height);
-        Display { id: id.into(), name: String::new(), frame, work_area: frame, size_mm: Size::new(mm.0, mm.1) }
+        Display { id: id.into(), name: String::new(), frame, work_area: frame, size_mm: Size::new(mm.0, mm.1),
+                  builtin: false }
     }
 
     #[test]

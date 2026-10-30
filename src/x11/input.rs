@@ -276,6 +276,7 @@ pub fn run(settings_path: &Path, frames_path: &Path) -> Res<()> {
     }
 
     let settings = load_settings(settings_path).unwrap_or_default();
+    let tray = crate::tray::Tray::start(settings_path, settings.enabled);
     let mut settings_time = modified(settings_path);
     let mut last_check = Instant::now();
     let mut input =
@@ -385,6 +386,7 @@ pub fn run(settings_path: &Path, frames_path: &Path) -> Res<()> {
                     eprintln!("Settings reloaded.");
                     mover.settings = new;
                     input.grab(&x, &mover.settings);
+                    tray.set_enabled(mover.settings.enabled);
                 }
             }
         }

@@ -540,6 +540,7 @@ mod tests {
                 frame,
                 work_area,
                 size_mm: Size::default(),
+                builtin: false,
             };
             Fake {
                 pointer: Point::default(),

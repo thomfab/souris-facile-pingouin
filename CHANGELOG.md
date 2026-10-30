@@ -2,6 +2,17 @@
 
 The section of a version becomes the notes of its GitHub release.
 
+## 0.2
+
+- A tray icon, with the macOS version's icon, and a menu to turn it on or
+  off, open the settings and quit. StatusNotifierItem where the desktop
+  supports it, the X11 system tray otherwise.
+- A settings window like the macOS version's, with a page per display to
+  set and preview its grid, forget remembered window sizes and launch at
+  login. Also with `souris-facile-pingouin settings`. Changes go to the
+  settings file, comments kept.
+- The app icon in the desktop file, installed with `make install`.
+
 ## 0.1
 
 - First release, for X11 sessions. Hold Ctrl + Alt and move the mouse to

@@ -12,6 +12,8 @@ pub struct Display {
     pub work_area: Rect,
     // The physical size, or zero if unknown.
     pub size_mm: Size,
+    // A laptop's own screen.
+    pub builtin: bool,
 }
 
 // The display under `point`, or the first one (the primary display).

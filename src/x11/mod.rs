@@ -5,6 +5,9 @@
 mod displays;
 mod input;
 mod overlays;
+mod settings_window;
+mod surface;
+mod tray;
 
 use std::collections::HashMap;
 use std::error::Error;
@@ -22,6 +25,8 @@ use crate::platform::{Display, Platform, WindowInfo};
 
 pub use displays::print_displays;
 pub use input::run;
+pub use settings_window::run as run_settings;
+pub use tray::spawn as spawn_tray;
 
 pub type Res<T> = Result<T, Box<dyn Error>>;
 
@@ -53,7 +58,19 @@ x11rb::atom_manager! {
         _NET_ACTIVE_WINDOW,
         EDID,
         NATURAL_SCROLLING: b"libinput Natural Scrolling Enabled",
+        _NET_WM_NAME,
+        _NET_WM_PID,
+        _NET_WM_ICON,
+        UTF8_STRING,
+        MANAGER,
+        _NET_SYSTEM_TRAY_OPCODE,
+        _NET_SYSTEM_TRAY_VISUAL,
+        _XEMBED_INFO,
+        _NET_WM_WINDOW_TYPE_POPUP_MENU,
+        WM_PROTOCOLS,
+        WM_DELETE_WINDOW,
         INSTANCE: b"_SOURIS_FACILE_PINGOUIN",
+        SETTINGS_INSTANCE: b"_SOURIS_FACILE_PINGOUIN_SETTINGS",
     }
 }
 

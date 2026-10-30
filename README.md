@@ -94,11 +94,26 @@ survives an app restart, so this is per app (its `WM_CLASS`): an app's
 windows share the same remembered size on a display. It can be turned off in
 the settings.
 
+## Tray icon
+
+Souris facile pingouin shows its icon in the tray, with a menu to turn it
+on or off, open the settings and quit. It uses StatusNotifierItem where the
+desktop supports it (KDE, Xfce, Cinnamon, MATE, GNOME with the AppIndicator
+extension...), and otherwise the X11 system tray (tint2, stalonetray, i3bar
+and other window managers' panels).
+
 ## Settings
 
-They're in `~/.config/souris-facile-pingouin/settings.toml`, written with
-comments on first launch, and read again whenever the file changes: no need
-to restart.
+The settings window opens from the tray icon's menu, or with
+`souris-facile-pingouin settings`. Like the macOS version's, it has a page
+for each part (moving, resizing, snapping, sending windows to other
+displays) and one per display, with its grid drawn and a button to show it
+on the display.
+
+The settings are saved in `~/.config/souris-facile-pingouin/settings.toml`,
+written with comments on first launch, and read again whenever the file
+changes: no need to restart. The settings window keeps the comments, and
+the file can be edited by hand too.
 
 | Setting                  | Default                          |
 | ------------------------ | -------------------------------- |
@@ -129,12 +144,13 @@ forget them.
 Download the latest release, or build it (see below), then:
 
 ```sh
-make install     # into ~/.local/bin, with a desktop file
+make install     # into ~/.local/bin, with a desktop file and the icon
 make autostart   # and start it with every session
 ```
 
 Or just put the executable anywhere and run it. It needs an X11 session; on
-Wayland it says so and quits.
+Wayland it says so and quits. "Launch at login", in the settings, starts it
+with every session wherever it is.
 
 If your window manager or desktop already uses `Ctrl` + `Alt` + a click,
 scroll or arrow key (some use `Ctrl` + `Alt` + arrows to switch
@@ -165,6 +181,12 @@ receives.
   arrow keys used from the apps, EWMH (`_NET_MOVERESIZE_WINDOW`) to move
   windows through the window manager, RandR and EDID for the displays, and
   click-through override-redirect windows for the grid and the dimming.
+- The settings window (`src/x11/settings_window.rs`) and the system tray's
+  menu are drawn with tiny-skia and the desktop's font (found with
+  fontconfig, drawn with fontdue), scaled by `Xft.dpi`, light or dark like
+  the desktop: no toolkit, so the executable stays static.
+- `src/tray.rs` is the tray icon: a StatusNotifierItem over D-Bus (ksni and
+  zbus, in pure Rust), or `src/x11/tray.rs` for the X11 system tray.
 
 ### Releasing
 
