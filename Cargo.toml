@@ -1,6 +1,6 @@
 [package]
 name = "souris-facile-pingouin"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 description = "Move or resize the window under the pointer by holding modifier keys and moving the mouse"
 license = "GPL-2.0-or-later"

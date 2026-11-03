@@ -1,5 +1,5 @@
 use crate::geometry::{
-    display_after, display_toward, divide, fit_to_grid, frame_distance, snap_delta, transfer, Direction, Point, Rect,
+    display_after, display_toward, divide, frame_distance, snap_delta, transfer, Direction, Point, Rect,
     Size,
 };
 use crate::gestures::{scroll_phase, SwipeTracker};
@@ -46,11 +46,6 @@ pub struct Mover<P: Platform> {
     // Which edges a resize moves: -1 for left/top, 1 for right/bottom.
     resize_dir_x: f64,
     resize_dir_y: f64,
-    // Whether the button is held down with the keys, to snap to the grid.
-    grid_click: bool,
-    // Releasing that button ends the operation: the keys then do nothing
-    // until they're released.
-    wait_for_keys_up: bool,
     dimmed: bool,
     // None until the window is first moved, if it starts maximized.
     last_frame: Option<Rect>,
@@ -85,8 +80,6 @@ impl<P: Platform> Mover<P> {
             grab_ratio: Point::default(),
             resize_dir_x: 1.0,
             resize_dir_y: 1.0,
-            grid_click: false,
-            wait_for_keys_up: false,
             dimmed: false,
             last_frame: None,
             maximized: false,
@@ -111,10 +104,7 @@ impl<P: Platform> Mover<P> {
     // Called after every pointer or modifier change, with their state.
     pub fn update(&mut self, p: &mut P, point: Point, mods: Mods) {
         let action = if self.settings.enabled { self.settings.action(mods) } else { KeyAction::None };
-        if action == KeyAction::None {
-            self.wait_for_keys_up = false;
-        }
-        let new_op = match if self.wait_for_keys_up { KeyAction::None } else { action } {
+        let new_op = match action {
             KeyAction::None => Op::None,
             KeyAction::Move => Op::Move,
             KeyAction::Resize => Op::Resize,
@@ -135,9 +125,9 @@ impl<P: Platform> Mover<P> {
         self.update_dimmer(p);
     }
 
-    // The other windows are dimmed while snapping to the grid.
+    // The other windows are dimmed while moving or resizing.
     fn update_dimmer(&mut self, p: &mut P) {
-        let dim = self.op != Op::None && self.grid_click && self.settings.dim_windows;
+        let dim = self.op != Op::None && self.settings.dim_windows;
         let Some(window) = &self.window else { return };
         if dim == self.dimmed {
             return;
@@ -162,10 +152,6 @@ impl<P: Platform> Mover<P> {
         }
 
         self.op = new_op;
-        // In case the button's release was missed.
-        if self.grid_click && !p.button_held() {
-            self.grid_click = false;
-        }
         self.start = point;
         self.start_rect = rect;
         self.maximized = info.maximized;
@@ -238,8 +224,8 @@ impl<P: Platform> Mover<P> {
         let mut y = (point.y - self.grab_ratio.y * size.height).round();
 
         let grid = self.current_grid(p, point);
-        x += self.snap(&[x, x + size.width], &self.snap_lines_x(y, size.height, &grid), &grid);
-        y += self.snap(&[y, y + size.height], &self.snap_lines_y(x, size.width, &grid), &grid);
+        x += self.snap(&[x, x + size.width], &self.snap_lines_x(y, size.height, &grid));
+        y += self.snap(&[y, y + size.height], &self.snap_lines_y(x, size.width, &grid));
 
         let frame = Rect::new(x, y, size.width, size.height);
         if self.last_frame != Some(frame) {
@@ -285,15 +271,15 @@ impl<P: Platform> Mover<P> {
         let grid = self.current_grid(p, point);
         let lines_x = self.snap_lines_x(top, bottom - top, &grid);
         if dir_x > 0.0 {
-            right += self.snap(&[right], &lines_x, &grid);
+            right += self.snap(&[right], &lines_x);
         } else {
-            left += self.snap(&[left], &lines_x, &grid);
+            left += self.snap(&[left], &lines_x);
         }
         let lines_y = self.snap_lines_y(left, right - left, &grid);
         if dir_y > 0.0 {
-            bottom += self.snap(&[bottom], &lines_y, &grid);
+            bottom += self.snap(&[bottom], &lines_y);
         } else {
-            top += self.snap(&[top], &lines_y, &grid);
+            top += self.snap(&[top], &lines_y);
         }
 
         // Keep within the window's own limits, moving only the pulled edges.
@@ -309,32 +295,11 @@ impl<P: Platform> Mover<P> {
         }
     }
 
-    // Pressing the button while holding the keys snaps to the grid until
-    // it's released. Returns true to keep the click from the app under the
-    // pointer.
-    pub fn click_down(&mut self, mods: Mods) -> bool {
-        if !self.settings.enabled || self.wait_for_keys_up || self.settings.action(mods) == KeyAction::None {
-            return false;
-        }
-        self.grid_click = true;
-        true
-    }
-
-    pub fn click_up(&mut self) -> bool {
-        if !self.grid_click {
-            return false;
-        }
-        self.grid_click = false;
-        // The window stays where it snapped.
-        self.wait_for_keys_up = true;
-        true
-    }
-
     // Sending to another display
 
     fn holds_move_keys(&self, mods: Mods) -> bool {
         let move_mods = self.settings.move_mods();
-        self.settings.enabled && !self.wait_for_keys_up && !move_mods.is_empty() && mods == move_mods
+        self.settings.enabled && !move_mods.is_empty() && mods == move_mods
     }
 
     // A scroll while holding the move keys. `dx` and `dy` follow the fingers
@@ -401,14 +366,10 @@ impl<P: Platform> Mover<P> {
         self.remember(frame, app, &displays);
         // Where its app's windows last were on that display, or the same
         // relative place and size as here.
-        let mut new_frame = match self.remembered(app, &displays[to].id) {
+        let new_frame = match self.remembered(app, &displays[to].id) {
             Some(remembered) => remembered.restored(&area, !resizable),
             None => transfer(&frame, &displays[from].work_area, &area, !resizable),
         };
-        if self.grid_click && resizable {
-            let (columns, rows) = self.settings.grid(&displays[to]);
-            new_frame = fit_to_grid(&new_frame, &area, columns, rows);
-        }
 
         self.end_operation(p);
         if info.maximized {
@@ -454,21 +415,19 @@ impl<P: Platform> Mover<P> {
 
     // Snapping
 
-    fn snap(&self, edges: &[f64], lines: &[f64], grid: &Option<Grid>) -> f64 {
-        // The grid always snaps; edge snapping only within the threshold.
-        let threshold = if grid.is_some() { f64::INFINITY } else { self.settings.snap_threshold };
-        if threshold <= 0.0 {
+    fn snap(&self, edges: &[f64], lines: &[f64]) -> f64 {
+        if self.settings.snap_threshold <= 0.0 {
             return 0.0;
         }
-        snap_delta(edges, lines, threshold)
+        snap_delta(edges, lines, self.settings.snap_threshold)
     }
 
     // Vertical lines a window spanning [top, top + height] can snap to.
     fn snap_lines_x(&self, top: f64, height: f64, grid: &Option<Grid>) -> Vec<f64> {
-        if let Some(grid) = grid {
-            return divide(grid.area.min_x(), grid.area.width, grid.columns);
-        }
         let mut lines: Vec<f64> = self.displays.iter().flat_map(|d| [d.work_area.min_x(), d.work_area.max_x()]).collect();
+        if let Some(grid) = grid {
+            lines.extend(divide(grid.area.min_x(), grid.area.width, grid.columns));
+        }
         if self.settings.snap_to_windows {
             let t = self.settings.snap_threshold;
             for r in &self.other_rects {
@@ -482,10 +441,10 @@ impl<P: Platform> Mover<P> {
 
     // Horizontal lines a window spanning [left, left + width] can snap to.
     fn snap_lines_y(&self, left: f64, width: f64, grid: &Option<Grid>) -> Vec<f64> {
-        if let Some(grid) = grid {
-            return divide(grid.area.min_y(), grid.area.height, grid.rows);
-        }
         let mut lines: Vec<f64> = self.displays.iter().flat_map(|d| [d.work_area.min_y(), d.work_area.max_y()]).collect();
+        if let Some(grid) = grid {
+            lines.extend(divide(grid.area.min_y(), grid.area.height, grid.rows));
+        }
         if self.settings.snap_to_windows {
             let t = self.settings.snap_threshold;
             for r in &self.other_rects {
@@ -497,11 +456,9 @@ impl<P: Platform> Mover<P> {
         lines
     }
 
-    // The grid of the display under the pointer while the button is held,
-    // or None (edge snapping then applies).
+    // The grid of the display under the pointer, shown if that's on.
     fn current_grid(&self, p: &mut P, point: Point) -> Option<Grid> {
-        let index = display_containing(&self.displays, point).filter(|_| self.grid_click);
-        let Some(index) = index else {
+        let Some(index) = display_containing(&self.displays, point) else {
             p.hide_grid();
             return None;
         };
@@ -586,9 +543,6 @@ mod tests {
         }
         fn warp_pointer(&mut self, point: Point) {
             self.pointer = point;
-        }
-        fn button_held(&mut self) -> bool {
-            true
         }
         // The last window added is on top.
         fn window_at(&mut self, point: Point) -> Option<u32> {
@@ -714,34 +668,32 @@ mod tests {
     }
 
     #[test]
-    fn holding_the_click_snaps_to_the_grid_until_it_is_released() {
+    fn edges_snap_to_grid_lines_when_they_come_close() {
         let (mut mover, mut fake) = setup();
         at(&mut mover, &mut fake, 500.0, 500.0, move_keys());
-        assert!(mover.click_down(move_keys()));
-        at(&mut mover, &mut fake, 520.0, 500.0, move_keys());
-        // A 1920 × 1080 display of unknown size gets a 3 × 2 grid, over its work area.
+        // The left edge comes within 16 px of the line at x = 640.
+        at(&mut mover, &mut fake, 930.0, 500.0, move_keys());
+        assert_eq!(fake.frame(1).min_x(), 640.0);
+        // A 1920 × 1080 display of unknown size gets a 3 × 2 grid, over its
+        // work area, shown with the other windows dimmed.
         assert_eq!(fake.grid, Some((Rect::new(0.0, 32.0, 1920.0, 1048.0), 3, 2)));
         assert_eq!(fake.dimmed_below, Some(1));
-        let frame = fake.frame(1);
-        assert_eq!((frame.min_x(), frame.min_y()), (0.0, 32.0));
-
-        // Releasing it ends the move: the window stays where it snapped.
-        assert!(mover.click_up());
-        at(&mut mover, &mut fake, 900.0, 900.0, move_keys());
-        assert_eq!(fake.frame(1), frame);
+        // Further away, it moves freely.
+        at(&mut mover, &mut fake, 980.0, 500.0, move_keys());
+        assert_eq!(fake.frame(1).min_x(), 680.0);
+        // Releasing the keys hides the grid and the dimming.
+        at(&mut mover, &mut fake, 980.0, 500.0, Mods::NONE);
         assert_eq!((fake.grid, fake.dimmed_below), (None, None));
-        // Until the keys are released and pressed again.
-        at(&mut mover, &mut fake, 900.0, 900.0, Mods::NONE);
-        at(&mut mover, &mut fake, 500.0, 500.0, move_keys());
-        at(&mut mover, &mut fake, 600.0, 500.0, move_keys());
-        assert_eq!(fake.frame(1).min_x(), frame.min_x() + 100.0);
     }
 
     #[test]
-    fn a_click_without_the_keys_goes_to_the_app() {
-        let (mut mover, _) = setup();
-        assert!(!mover.click_down(Mods::NONE));
-        assert!(!mover.click_up());
+    fn resized_edges_snap_to_grid_lines() {
+        let (mut mover, mut fake) = setup();
+        // Near the bottom-right corner: pulled up 240 px, the bottom edge
+        // comes within 4 px of the line at y = 556.
+        at(&mut mover, &mut fake, 900.0, 700.0, resize_keys());
+        at(&mut mover, &mut fake, 900.0, 460.0, resize_keys());
+        assert_eq!(fake.frame(1).max_y(), 556.0);
     }
 
     #[test]
@@ -832,6 +784,5 @@ mod tests {
         at(&mut mover, &mut fake, 500.0, 500.0, move_keys());
         at(&mut mover, &mut fake, 600.0, 500.0, move_keys());
         assert_eq!(fake.frame(1), Rect::new(200.0, 200.0, 800.0, 600.0));
-        assert!(!mover.click_down(move_keys()));
     }
 }

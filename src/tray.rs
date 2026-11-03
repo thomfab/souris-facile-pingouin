@@ -13,6 +13,15 @@ use ksni::MenuItem;
 use crate::settings::SettingsFile;
 
 pub const NAME: &str = "Souris facile pingouin";
+const PROJECT_PAGE: &str = "https://github.com/thomfab/souris-facile-pingouin";
+
+// The project page, with the releases, in the browser.
+pub fn open_about() {
+    match std::process::Command::new("xdg-open").arg(PROJECT_PAGE).spawn() {
+        Ok(mut child) => drop(std::thread::spawn(move || child.wait())),
+        Err(e) => eprintln!("Can't open {PROJECT_PAGE}: {e}"),
+    }
+}
 
 // Opens the settings window, a process of its own.
 pub fn open_settings() {
@@ -74,6 +83,14 @@ impl ksni::Tray for Item {
 
     fn menu(&self) -> Vec<MenuItem<Self>> {
         vec![
+            StandardItem {
+                label: format!("About {NAME}"),
+                icon_name: "help-about".into(),
+                activate: Box::new(|_: &mut Item| open_about()),
+                ..Default::default()
+            }
+            .into(),
+            MenuItem::Separator,
             CheckmarkItem {
                 label: "Enabled".into(),
                 checked: self.enabled,

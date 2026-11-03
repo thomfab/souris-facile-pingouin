@@ -46,8 +46,6 @@ pub trait Platform {
 
     fn pointer(&mut self) -> Point;
     fn warp_pointer(&mut self, point: Point);
-    // Whether the main button is held down.
-    fn button_held(&mut self) -> bool;
 
     // The topmost window under `point`.
     fn window_at(&mut self, point: Point) -> Option<Self::Window>;

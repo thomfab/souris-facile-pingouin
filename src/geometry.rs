@@ -213,34 +213,6 @@ pub fn transfer(frame: &Rect, from: &Rect, to: &Rect, keep_size: bool) -> Rect {
     Rect::new(x.round(), y.round(), width.round(), height.round())
 }
 
-// Moves each edge of `frame` to the nearest line of the grid over `area`,
-// keeping it at least one cell wide and tall.
-pub fn fit_to_grid(frame: &Rect, area: &Rect, columns: usize, rows: usize) -> Rect {
-    fn nearest(value: f64, lines: &[f64]) -> usize {
-        let mut best = 0;
-        for i in 1..lines.len() {
-            if (lines[i] - value).abs() < (lines[best] - value).abs() {
-                best = i;
-            }
-        }
-        best
-    }
-    fn span(low: f64, high: f64, lines: &[f64]) -> (f64, f64) {
-        let (mut first, mut last) = (nearest(low, lines), nearest(high, lines));
-        if first == last {
-            if last < lines.len() - 1 {
-                last += 1;
-            } else {
-                first -= 1;
-            }
-        }
-        (lines[first], lines[last])
-    }
-    let (left, right) = span(frame.min_x(), frame.max_x(), &divide(area.min_x(), area.width, columns));
-    let (top, bottom) = span(frame.min_y(), frame.max_y(), &divide(area.min_y(), area.height, rows));
-    Rect::new(left, top, right - left, bottom - top)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -328,28 +300,6 @@ mod tests {
         let from = Rect::new(0.0, 0.0, 1000.0, 800.0);
         let small = Rect::new(1000.0, 0.0, 500.0, 400.0);
         assert_eq!(transfer(&from, &from, &small, true), Rect::new(1000.0, 0.0, 1000.0, 800.0));
-    }
-
-    #[test]
-    fn fit_to_grid_moves_edges_to_the_nearest_lines() {
-        let area = Rect::new(0.0, 0.0, 1200.0, 900.0);
-        assert_eq!(
-            fit_to_grid(&Rect::new(290.0, 10.0, 320.0, 580.0), &area, 4, 3),
-            Rect::new(300.0, 0.0, 300.0, 600.0)
-        );
-    }
-
-    #[test]
-    fn fit_to_grid_keeps_at_least_one_cell() {
-        let area = Rect::new(0.0, 0.0, 1200.0, 900.0);
-        assert_eq!(
-            fit_to_grid(&Rect::new(310.0, 310.0, 20.0, 20.0), &area, 4, 3),
-            Rect::new(300.0, 300.0, 300.0, 300.0)
-        );
-        assert_eq!(
-            fit_to_grid(&Rect::new(1190.0, 890.0, 5.0, 5.0), &area, 4, 3),
-            Rect::new(900.0, 600.0, 300.0, 300.0)
-        );
     }
 
     #[test]

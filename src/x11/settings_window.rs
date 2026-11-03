@@ -916,13 +916,13 @@ impl App {
                     Row::new("Snap distance", Control::Stepper(value, (threshold > 0).then_some(Action::Snap(-step)),
                                                                (threshold < 200).then_some(Action::Snap(step)))),
                     Row::new("Snap to other windows", switch("snap-to-windows")).enabled(threshold > 0),
-                ], Some("Window edges snap to display edges, and to other windows', when they come close."));
+                ], Some("Window edges snap to display edges and grid lines, and to other windows', when they come \
+                         close. 0 turns snapping off."));
                 f.section(Some("Grid"), vec![
                     Row::new("Show grid", switch("show-grid")),
                     Row::new("Dim other windows", switch("dim-windows")).subtitle("Needs a compositor."),
-                ], Some("While moving or resizing, press and hold the click (with the keys still held) to snap \
-                         window edges to the grid of the display under the pointer. Releasing the click drops the \
-                         window there. Each display's grid is set on its own page."));
+                ], Some("While moving or resizing, window edges snap to the grid of the display under the \
+                         pointer when they come close to its lines. Each display's grid is set on its own page."));
             }
             Page::Send => {
                 f.title("Send to Display", None);
@@ -981,7 +981,7 @@ impl App {
                     Row::new("Columns", stepper(columns, 1, 0)),
                     Row::new("Rows", stepper(rows, 0, 1)),
                     Row::new("Show it on the display", Control::Button("Preview", Some(Action::Preview(id.clone())))),
-                ], Some("Windows snap to it while you hold the click. Remembered for this display, and used again \
+                ], Some("Window edges snap to its lines when they come close. Remembered for this display, and used again \
                          whenever it's plugged in. A new display gets a grid suiting its size."));
                 let count = self.memory().count(id);
                 let apps = match count {

@@ -2,6 +2,16 @@
 
 The section of a version becomes the notes of its GitHub release.
 
+## 0.3
+
+- **No more click to snap to the grid,** like the macOS version 0.6. While
+  moving or resizing, the grid is shown (unless turned off) with the other
+  windows dimmed, and window edges snap to its lines when they come close,
+  like they do to display edges. The click goes to the app again. Sending a
+  window to another display keeps its relative place and size instead of
+  fitting the grid.
+- An About item in the tray menu, opening the project page.
+
 ## 0.2
 
 - A tray icon, with the macOS version's icon, and a menu to turn it on or

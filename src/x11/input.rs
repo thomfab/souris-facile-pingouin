@@ -4,7 +4,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 use x11rb::connection::Connection;
 use x11rb::protocol::xinput::{
-    self, ConnectionExt as _, Device, EventMode, GrabMode22, GrabOwner, GrabType, XIEventMask,
+    self, ConnectionExt as _, Device, GrabMode22, GrabOwner, GrabType, XIEventMask,
     XIGetPropertyItems,
 };
 use x11rb::protocol::xproto::{
@@ -143,10 +143,9 @@ struct Input {
 }
 
 impl Input {
-    // Grabs the clicks, scrolls and arrow keys used with the keys held, so
-    // that the app under the pointer doesn't get them. The click grab is
-    // synchronous, to give the click back when it turns out not to be used.
-    // The others aren't, so that the keyboard can never stay frozen.
+    // Grabs the scrolls and arrow keys used with the move keys held, so that
+    // the app under the pointer doesn't get them. The grabs aren't
+    // synchronous, so that the keyboard can never stay frozen.
     fn grab(&mut self, x: &X11, settings: &Settings) {
         self.ungrab(x);
         if !settings.enabled {
@@ -156,10 +155,9 @@ impl Input {
         let combos = |mods: &[Mods]| -> Vec<u32> {
             mods.iter().filter(|m| !m.is_empty()).flat_map(|&m| k.with_locks(k.mask(m))).collect()
         };
-        let both = combos(&[settings.move_mods(), settings.resize_mods()]);
         let moving = combos(&[settings.move_mods()]);
 
-        let mut wanted = vec![(1, GrabType::BUTTON, GrabMode22::SYNC, both, "the click")];
+        let mut wanted = Vec::new();
         if settings.send_with_scroll {
             for button in 4..=7 {
                 wanted.push((button, GrabType::BUTTON, GrabMode22::ASYNC, moving.clone(), "scrolling"));
@@ -317,10 +315,6 @@ pub fn run(settings_path: &Path, frames_path: &Path) -> Res<()> {
                 Event::XinputButtonPress(e) => {
                     let mods = input.keymap.mods(e.mods.effective as u16);
                     match e.detail {
-                        1 => {
-                            let mode = if mover.click_down(mods) { EventMode::ASYNC_DEVICE } else { EventMode::REPLAY_DEVICE };
-                            x.conn.xinput_xi_allow_events(e.time, e.deviceid, mode, 0, x.root)?;
-                        }
                         4..=7 => {
                             let device = input.scroll_device(&x, e.sourceid);
                             let step = if device.touchpad { TOUCHPAD_STEP } else { 1.0 };
@@ -338,12 +332,7 @@ pub fn run(settings_path: &Path, frames_path: &Path) -> Res<()> {
                     }
                     changed = true;
                 }
-                Event::XinputButtonRelease(e) => {
-                    if e.detail == 1 {
-                        mover.click_up();
-                    }
-                    changed = true;
-                }
+                Event::XinputButtonRelease(_) => changed = true,
                 Event::XinputKeyPress(e) => {
                     let mods = input.keymap.mods(e.mods.effective as u16);
                     let repeat = e.flags.contains(xinput::KeyEventFlags::KEY_REPEAT);

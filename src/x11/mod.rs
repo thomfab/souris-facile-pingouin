@@ -15,7 +15,7 @@ use std::error::Error;
 use x11rb::connection::Connection;
 use x11rb::properties::{WmClass, WmSizeHints};
 use x11rb::protocol::xproto::{
-    AtomEnum, ClientMessageEvent, ConnectionExt as _, EventMask, GetPropertyReply, KeyButMask, Window,
+    AtomEnum, ClientMessageEvent, ConnectionExt as _, EventMask, GetPropertyReply, Window,
 };
 use x11rb::rust_connection::{ReplyError, RustConnection};
 use x11rb::{CURRENT_TIME, NONE};
@@ -308,10 +308,6 @@ impl Platform for X11 {
     fn warp_pointer(&mut self, point: Point) {
         let _ = self.conn.warp_pointer(NONE, self.root, 0, 0, 0, 0, point.x as i16, point.y as i16);
         let _ = self.conn.flush();
-    }
-
-    fn button_held(&mut self) -> bool {
-        self.query_pointer().is_some_and(|p| p.1 & u16::from(KeyButMask::BUTTON1) != 0)
     }
 
     fn window_at(&mut self, point: Point) -> Option<Window> {

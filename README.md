@@ -22,10 +22,6 @@ Hold a key combination and move the mouse:
 | `Ctrl` + `Alt`           | Move the window under the pointer   |
 | `Ctrl` + `Alt` + `Super` | Resize the window under the pointer |
 
-Press and hold the click while holding the keys to snap to the grid.
-Releasing it drops the window where it snapped and ends the move or resize:
-release the keys and press them again to start another one.
-
 Release the keys to stop. The combination must match exactly (Caps Lock and
 Num Lock don't count), and both can be changed or turned off in the
 settings. Since the resize keys include the move keys, adding `Super` while
@@ -41,17 +37,18 @@ moving switches to resizing, and releasing it switches back.
 
 ### Snapping
 
-Window edges snap to display edges (minus panels and docks) and to the
-edges of neighbouring windows when they come within 16 pixels. The distance
-is configurable, and `0` turns snapping off.
+Window edges snap to display edges (minus panels and docks), to the lines
+of the display's grid and to the edges of neighbouring windows when they
+come within 16 pixels. The distance is configurable, and `0` turns snapping
+off.
 
 ### Grid
 
-Each display is divided into a grid of columns and rows. While you hold the
-click, moved and resized edges always land on a grid line; the click itself
-doesn't reach the app under the pointer. The grid follows the display under
-the pointer, and its lines are shown while you hold the click, with the
-other windows dimmed (with a compositor). Windows stacked above the one you
+Each display is divided into a grid of columns and rows. Moved and resized
+edges snap to a grid line when they come close to it, like they do to
+display edges. The grid follows the display under the pointer, and its lines
+are shown while you move or resize, with the other windows dimmed (with a
+compositor). Windows stacked above the one you
 are moving stay bright, so turn on `raise-window` if you want everything
 else dimmed.
 
@@ -78,9 +75,8 @@ While holding the move keys over a window:
 - **Press an arrow key**: the window goes to the display in that direction.
 
 The window keeps its relative place and size (a window on the left half of
-the laptop screen lands on the left half of the monitor), fits the grid of
-that display if you hold the click, and the pointer goes with it, so you can
-keep moving it. Swipes, scrolls and arrow keys used this way don't reach the
+the laptop screen lands on the left half of the monitor), and the pointer
+goes with it, so you can keep moving it. Swipes, scrolls and arrow keys used this way don't reach the
 app under the pointer. Both can be turned off in the settings.
 
 ### Window sizes per display
@@ -96,8 +92,8 @@ the settings.
 
 ## Tray icon
 
-Souris facile pingouin shows its icon in the tray, with a menu to turn it
-on or off, open the settings and quit. It uses StatusNotifierItem where the
+Souris facile pingouin shows its icon in the tray, with a menu to open the
+project page (About), turn it on or off, open the settings and quit. It uses StatusNotifierItem where the
 desktop supports it (KDE, Xfce, Cinnamon, MATE, GNOME with the AppIndicator
 extension...), and otherwise the X11 system tray (tint2, stalonetray, i3bar
 and other window managers' panels).
@@ -152,8 +148,8 @@ Or just put the executable anywhere and run it. It needs an X11 session; on
 Wayland it says so and quits. "Launch at login", in the settings, starts it
 with every session wherever it is.
 
-If your window manager or desktop already uses `Ctrl` + `Alt` + a click,
-scroll or arrow key (some use `Ctrl` + `Alt` + arrows to switch
+If your window manager or desktop already uses `Ctrl` + `Alt` + a scroll
+or arrow key (some use `Ctrl` + `Alt` + arrows to switch
 workspaces), Souris facile pingouin says so on launch: pick other keys in
 the settings, or change the desktop's shortcut.
 
@@ -177,8 +173,8 @@ receives.
   sending to displays), written against the small `Platform` trait in
   `src/platform.rs`, and tested with a fake one.
 - `src/x11/` is the X11 platform: XInput 2 raw events to follow the keys
-  and the pointer everywhere, passive grabs to keep the clicks, scrolls and
-  arrow keys used from the apps, EWMH (`_NET_MOVERESIZE_WINDOW`) to move
+  and the pointer everywhere, passive grabs to keep the scrolls and arrow
+  keys used from the apps, EWMH (`_NET_MOVERESIZE_WINDOW`) to move
   windows through the window manager, RandR and EDID for the displays, and
   click-through override-redirect windows for the grid and the dimming.
 - The settings window (`src/x11/settings_window.rs`) and the system tray's

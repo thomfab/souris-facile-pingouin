@@ -34,6 +34,7 @@ pub fn spawn(settings_path: PathBuf, enabled: Arc<AtomicBool>) {
 
 #[derive(Clone, Copy, PartialEq)]
 enum Entry {
+    About,
     Enabled,
     Settings,
     Quit,
@@ -220,7 +221,8 @@ impl TrayIcon {
         let conn = &self.x.conn;
         let s = self.scale as f64;
         let canvas = Canvas::new(1.0, 1.0, self.scale, self.fonts.clone());
-        let entries = [Some(Entry::Enabled), None, Some(Entry::Settings), None, Some(Entry::Quit)];
+        let entries =
+            [Some(Entry::About), None, Some(Entry::Enabled), None, Some(Entry::Settings), None, Some(Entry::Quit)];
         let width = entries
             .iter()
             .flatten()
@@ -294,6 +296,7 @@ impl TrayIcon {
     fn choose(&mut self, entry: Entry) {
         self.close_menu();
         match entry {
+            Entry::About => tray::open_about(),
             Entry::Enabled => {
                 let enabled = !self.enabled.load(Ordering::Relaxed);
                 self.enabled.store(enabled, Ordering::Relaxed);
@@ -307,6 +310,7 @@ impl TrayIcon {
 
 fn label(entry: Entry) -> String {
     match entry {
+        Entry::About => format!("About {NAME}"),
         Entry::Enabled => "Enabled".into(),
         Entry::Settings => "Settings…".into(),
         Entry::Quit => format!("Quit {NAME}"),

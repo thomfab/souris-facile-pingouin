@@ -239,12 +239,12 @@ raise-window = false
 # Pull the corner nearest the pointer, or else always the bottom-right one.
 resize-nearest-corner = true
 
-# Window edges snap to display edges, and to other windows', within this
-# many pixels. 0 turns snapping off.
+# Window edges snap to display edges and grid lines, and to other windows',
+# within this many pixels. 0 turns snapping off.
 snap-threshold = 16
 snap-to-windows = true
 
-# While you hold the click, edges land on the grid of the display.
+# Show the grid of the display while moving or resizing.
 show-grid = true
 # Dim the other windows meanwhile (needs a compositor).
 dim-windows = true
